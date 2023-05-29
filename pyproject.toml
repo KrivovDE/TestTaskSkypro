@@ -2,7 +2,7 @@
 name = "hephaestus"
 version = "0.1.0"
 description = ""
-authors = ["alexander.mescheryakov <alexander.mescheryakov@semrush.com>"]
+authors = ["dmitrii.krivov <55reigen55@mail.ru>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
