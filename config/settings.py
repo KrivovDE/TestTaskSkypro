@@ -7,7 +7,7 @@ env = environ.Env(
         str,
         "django-insecure-9%!=zwz4^*q9%u2oj7a@gn%@+%_9m+&h@x1=p=10c_hmac0!^#",
     ),
-    DATABASE_URL=(str, "postgres://postgres:postgres@db:5432/hephaestus"),
+    DATABASE_URL=(str, "postgres://postgres:postgres@db:5433/hephaestus"),
 )
 SECRET_KEY = env("SECRET_KEY")
 
