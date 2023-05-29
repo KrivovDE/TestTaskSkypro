@@ -1,0 +1,62 @@
+---
+variables:
+
+  IMAGE_RESULT: "cqs"
+
+stages:
+  - linters
+  - build_application
+  - run_tests
+  - deploy
+
+
+
+
+### pre-commit linter
+pre_commit:
+  stage: linters
+  image: python:3.9.4-buster
+  before_script:
+    - apt-get update
+    - apt-get install -y git
+    - pip install pre-commit
+  script:
+    - pre-commit run -a
+  allow_failure: true
+
+
+
+build_application:
+  variables:
+    IMAGE_RESULT: "sf-integration"
+  stage: build_application
+  script:
+    - docker build . -f ./docker/app/Dockerfile -t ${IMAGE_RESULT}:${CI_COMMIT_SHA}
+    - docker tag ${IMAGE_RESULT}:${CI_COMMIT_SHA} ${ARTIFACTORY}/${IMAGE_RESULT}:${CI_COMMIT_SHA}
+    - docker login --username mesteriis --password 18935766
+    - docker push mesteriis/cqs:${CI_COMMIT_SHA}
+
+
+### Testing. Small, medium, large
+run_pytest_small:
+  image: cqs:${CI_COMMIT_SHA}
+  stage: run_tests
+  variables:
+    PYTEST_MARKS: "small"
+  script:
+    - docker-compose -f local.yml up --abort-on-container-exit --exit-code-from=application
+  except:
+    variables:
+      - $CI_MERGE_REQUEST_TITLE =~ /draft:|wip:/i
+      - $CI_COMMIT_MESSAGE =~ /#skip-tests/
+
+## STAGE
+deployment:
+  stage: deploy
+  script:
+    - ssh $DEPLOY_SERVER_USER@$DEPLOY_SERVER_IP "which docker || ( apt-get update -y && apt-get install docker.io -y && systemctl enable --now docker )"
+    - ssh $DEPLOY_SERVER_USER@$DEPLOY_SERVER_IP "which docker-compose || ( curl -L 'https://github.com/docker/compose/releases/download/1.29.2/docker-compose-$(uname -s)-$(uname -m)' -o /usr/local/bin/docker-compose && chmod +x /usr/local/bin/docker-compose )"
+    - ssh $DEPLOY_SERVER_USER@$DEPLOY_SERVER_IP "if [ ! -d "$DEPLOY_SERVER_PATH" ]; then mkdir -p $DEPLOY_SERVER_PATH; fi"
+    - scp -prq $CI_PROJECT_DIR/* $DEPLOY_SERVER_USER@$DEPLOY_SERVER_IP:$DEPLOY_SERVER_PATH/
+    - ssh $DEPLOY_SERVER_USER@$DEPLOY_SERVER_IP "cd $DEPLOY_SERVER_PATH && docker-compose -f docker-compose.prod.yml stop"
+    - ssh $DEPLOY_SERVER_USER@$DEPLOY_SERVER_IP "cd $DEPLOY_SERVER_PATH && docker-compose -f docker-compose.prod.yml up -d"
